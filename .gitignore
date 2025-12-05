@@ -1,0 +1,41 @@
+# Build directories
+build/
+out/
+bin/
+
+# Temporary Build Files
+*.log
+*.tlog
+*.obj
+*.pdb
+*.idb
+*.ilk
+*.exe
+*.o
+*.a
+*.so
+*.dylib
+
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+
+# VS Code
+.vscode/
+
+# Termidash specific logs and temp files
+build_log.txt
+build_err.txt
+build_out.txt
+build_out_*.txt
+*.tdsh
+!test_*.tdsh
+.heredoc_*
+.termidash_history
+
+# System
+.DS_Store
+Thumbs.db
