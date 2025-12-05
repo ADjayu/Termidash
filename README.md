@@ -210,6 +210,32 @@ cmake --build .
 - **Windows**: Uses native Windows API for terminal, process management, and job control
 - **Linux/macOS**: Uses POSIX APIs for Unix compatibility
 
+### Running Tests
+
+The project includes a comprehensive test suite using GoogleTest:
+
+```bash
+# Configure with testing enabled
+cmake -B build -DBUILD_TESTING=ON
+
+# Build
+cmake --build build --config Debug
+
+# Run tests
+./build/Debug/termidash_tests.exe   # Windows
+./build/termidash_tests             # Linux/macOS
+```
+
+**Test Coverage**: 141 unit tests covering:
+- Expression evaluator (arithmetic & comparisons)
+- Variable manager (scoping, set/get/unset)
+- Alias manager
+- Function manager
+- Parser (tokenization, redirection, pipelines)
+- Completion engine (fuzzy matching)
+- Control flow handler (if/while/for/function parsing)
+- Process error types
+
 ## Configuration
 
 ### `.termidashrc`

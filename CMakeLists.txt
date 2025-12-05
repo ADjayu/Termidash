@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(termidash)
+project(termidash VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build options
+option(BUILD_TESTING "Build the testing tree" ON)
 
 # Platform-specific logic
 if(WIN32)
@@ -14,7 +17,20 @@ endif()
 # Include directories
 include_directories(include)
 
-# Common Sources
+# Testable Core Sources (non-platform specific, no main)
+set(CORE_TESTABLE_SOURCES
+    src/core/AliasManager.cpp
+    src/core/VariableManager.cpp
+    src/core/FunctionManager.cpp
+    src/core/ExpressionEvaluator.cpp
+    src/core/Environment.cpp
+    src/core/Parser.cpp
+    src/core/CompletionEngine.cpp
+    src/core/InputHandler.cpp
+    src/core/ControlFlowHandler.cpp
+)
+
+# Core Sources that need platform
 set(CORE_SOURCES
     src/core/ShellLoop.cpp
     src/core/BuiltInCommandHandler.cpp
@@ -22,13 +38,9 @@ set(CORE_SOURCES
     src/core/JobManagerFactory.cpp
     src/core/SignalHandlerFactory.cpp
     src/core/PlatformFactory.cpp
-    src/core/Environment.cpp
     src/core/BuiltIn/CommonCommandHandler.cpp
     src/common/PlatformUtils.cpp
-    src/core/AliasManager.cpp
-    src/core/VariableManager.cpp
-    src/core/FunctionManager.cpp
-    src/core/ExpressionEvaluator.cpp
+    src/core/PipelineExecutor.cpp
 )
 
 # Platform Sources
@@ -50,6 +62,57 @@ else() # Assuming UNIX for non-WIN32
     )
 endif()
 
+# Create a library for testable components
+add_library(termidash_core STATIC ${CORE_TESTABLE_SOURCES})
+target_include_directories(termidash_core PUBLIC include)
+
+# Main executable
 add_executable(termidash src/main.cpp ${CORE_SOURCES} ${PLATFORM_SOURCES})
+target_link_libraries(termidash PRIVATE termidash_core)
+
+# ============================================================================
+# Testing Configuration
+# ============================================================================
+if(BUILD_TESTING)
+    enable_testing()
+    
+    # Fetch GoogleTest
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    
+    # Test sources
+    set(TEST_SOURCES
+        tests/test_main.cpp
+        tests/core/test_expression_evaluator.cpp
+        tests/core/test_variable_manager.cpp
+        tests/core/test_alias_manager.cpp
+        tests/core/test_function_manager.cpp
+        tests/core/test_parser.cpp
+        tests/core/test_completion_engine.cpp
+        tests/core/test_control_flow_handler.cpp
+        tests/core/test_process_error.cpp
+    )
+    
+    # Test executable
+    add_executable(termidash_tests ${TEST_SOURCES})
+    target_link_libraries(termidash_tests 
+        PRIVATE 
+            termidash_core
+            GTest::gtest
+            GTest::gtest_main
+    )
+    target_include_directories(termidash_tests PRIVATE include)
+    
+    # Register tests with CTest
+    include(GoogleTest)
+    gtest_discover_tests(termidash_tests)
+endif()
 
 
