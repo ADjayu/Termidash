@@ -28,6 +28,10 @@ set(CORE_TESTABLE_SOURCES
     src/core/CompletionEngine.cpp
     src/core/InputHandler.cpp
     src/core/ControlFlowHandler.cpp
+    src/core/CommandSubstitution.cpp
+    src/core/BraceExpander.cpp
+    src/core/GlobExpander.cpp
+    src/core/PromptEngine.cpp
 )
 
 # Core Sources that need platform
@@ -59,6 +63,7 @@ else() # Assuming UNIX for non-WIN32
         src/platform/linux/LinuxProcessManager.cpp
         src/platform/linux/LinuxJobManager.cpp
         src/platform/linux/LinuxSignalHandler.cpp
+        src/core/BuiltIn/LinuxCommandHandler.cpp
     )
 endif()
 
@@ -98,6 +103,10 @@ if(BUILD_TESTING)
         tests/core/test_completion_engine.cpp
         tests/core/test_control_flow_handler.cpp
         tests/core/test_process_error.cpp
+        tests/core/test_command_substitution.cpp
+        tests/core/test_brace_expander.cpp
+        tests/core/test_glob_expander.cpp
+        tests/core/test_prompt_engine.cpp
     )
     
     # Test executable

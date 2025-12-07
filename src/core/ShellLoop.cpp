@@ -11,6 +11,10 @@
 #include "core/FunctionManager.hpp"
 #include "core/ExpressionEvaluator.hpp"
 #include "common/PlatformUtils.hpp"
+#include "core/CommandSubstitution.hpp"
+#include "core/BraceExpander.hpp"
+#include "core/GlobExpander.hpp"
+#include "core/PromptEngine.hpp"
 #include <iostream>
 #include <fstream>
 #include "core/RingBuffer.hpp"
@@ -857,8 +861,28 @@ namespace termidash
     }
 
     // Helper: Expand variables and aliases
-    static std::string expandString(const std::string& input) {
+    // Expansion order: 1. Alias, 2. Variable, 3. Arithmetic, 4. Command Substitution
+    // Note: Brace and Glob expansion happen at tokenization level
+    static std::string expandString(const std::string& input, platform::IProcessManager* processManager = nullptr) {
         std::string cmd = input;
+        
+        // Alias expansion (only at start) - do this first
+        std::string cmdName;
+        size_t spacePos = cmd.find(' ');
+        if (spacePos != std::string::npos)
+            cmdName = cmd.substr(0, spacePos);
+        else
+            cmdName = cmd;
+
+        if (AliasManager::instance().has(cmdName)) {
+            std::string aliasVal = AliasManager::instance().get(cmdName);
+            if (spacePos != std::string::npos) {
+                cmd = aliasVal + cmd.substr(spacePos);
+            } else {
+                cmd = aliasVal;
+            }
+        }
+        
         // Variable expansion
         std::string expandedVarsCmd;
         for (size_t i = 0; i < cmd.size(); ++i) {
@@ -869,7 +893,7 @@ namespace termidash
                 if (end != std::string::npos) {
                     std::string expr = cmd.substr(start, end - start);
                     // Recursively expand variables inside expression
-                    expr = expandString(expr); 
+                    expr = expandString(expr, processManager); 
                     try {
                         long long result = ExpressionEvaluator::evaluate(expr);
                         expandedVarsCmd += std::to_string(result);
@@ -903,25 +927,103 @@ namespace termidash
             }
         }
         cmd = expandedVarsCmd;
-
-        // Alias expansion (only at start)
-        std::string expandedCmd = cmd;
-        std::string cmdName;
-        size_t spacePos = cmd.find(' ');
-        if (spacePos != std::string::npos)
-            cmdName = cmd.substr(0, spacePos);
-        else
-            cmdName = cmd;
-
-        if (AliasManager::instance().has(cmdName)) {
-            std::string aliasVal = AliasManager::instance().get(cmdName);
-            if (spacePos != std::string::npos) {
-                expandedCmd = aliasVal + cmd.substr(spacePos);
-            } else {
-                expandedCmd = aliasVal;
+        
+        // Command substitution $(...) and `...`
+        if (CommandSubstitution::hasSubstitution(cmd) && processManager != nullptr) {
+            cmd = CommandSubstitution::expand(cmd, [processManager](const std::string& subCmd) -> std::string {
+                // Execute command and capture output
+                // Create a temporary file for output
+                std::string tempFile = ".cmdsubst_" + std::to_string(std::rand()) + ".tmp";
+                long outHandle = PlatformUtils::openFileForWrite(tempFile, false);
+                
+                if (outHandle == -1) {
+                    return "";
+                }
+                
+                // On Windows, use cmd.exe /c to execute the command
+                // This handles built-in commands like echo, dir, etc.
+#ifdef _WIN32
+                std::string cmdExe = "cmd.exe";
+                std::vector<std::string> args = {"/c", subCmd};
+#else
+                std::string cmdExe = "/bin/sh";
+                std::vector<std::string> args = {"-c", subCmd};
+#endif
+                
+                long pid = processManager->spawn(cmdExe, args, false, -1, outHandle, -1);
+                PlatformUtils::closeFile(outHandle);
+                
+                if (pid != -1) {
+                    processManager->wait(pid);
+                }
+                
+                // Read output
+                std::string output;
+                std::ifstream inFile(tempFile);
+                if (inFile) {
+                    std::stringstream ss;
+                    ss << inFile.rdbuf();
+                    output = ss.str();
+                }
+                inFile.close();
+                std::remove(tempFile.c_str());
+                
+                return output;
+            });
+        }
+        
+        // Brace expansion - apply per-token after command substitution
+        // We need to tokenize, expand braces in each token, then rejoin
+        if (BraceExpander::hasBraces(cmd)) {
+            std::vector<std::string> tokens;
+            std::string currentToken;
+            bool inQuotes = false;
+            char quoteChar = 0;
+            
+            // Tokenize respecting quotes
+            for (size_t i = 0; i < cmd.size(); ++i) {
+                char c = cmd[i];
+                if (!inQuotes && (c == '"' || c == '\'')) {
+                    inQuotes = true;
+                    quoteChar = c;
+                    currentToken += c;
+                } else if (inQuotes && c == quoteChar) {
+                    inQuotes = false;
+                    quoteChar = 0;
+                    currentToken += c;
+                } else if (!inQuotes && c == ' ') {
+                    if (!currentToken.empty()) {
+                        tokens.push_back(currentToken);
+                        currentToken.clear();
+                    }
+                } else {
+                    currentToken += c;
+                }
+            }
+            if (!currentToken.empty()) {
+                tokens.push_back(currentToken);
+            }
+            
+            // Expand braces in each token
+            std::vector<std::string> expandedTokens;
+            for (const auto& token : tokens) {
+                if (BraceExpander::hasBraces(token)) {
+                    auto expanded = BraceExpander::expand(token);
+                    expandedTokens.insert(expandedTokens.end(), expanded.begin(), expanded.end());
+                } else {
+                    expandedTokens.push_back(token);
+                }
+            }
+            
+            // Rejoin tokens
+            cmd.clear();
+            for (size_t i = 0; i < expandedTokens.size(); ++i) {
+                if (i > 0) cmd += " ";
+                cmd += expandedTokens[i];
             }
         }
-        return expandedCmd;
+        
+        return cmd;
     }
 
     static void processInputLine(const std::string &input, BuiltInCommandHandler &builtInHandler, ICommandExecutor *executor, platform::IProcessManager* processManager, IJobManager *jobManager, ShellState &state, std::istream* inputSource = nullptr, platform::ITerminal* terminal = nullptr)
@@ -993,7 +1095,7 @@ namespace termidash
                     b.loopVar = trim(rest.substr(0, inPos));
                     std::string itemsStr = rest.substr(inPos + 4);
                     // Expand items string immediately
-                    itemsStr = expandString(itemsStr);
+                    itemsStr = expandString(itemsStr, processManager);
                     
                     // split items
                     size_t p = 0;
@@ -1045,7 +1147,7 @@ namespace termidash
                     else if (b.type == Block::If)
                     {
                         // Execute condition
-                        std::string condCmd = expandString(b.condition);
+                        std::string condCmd = expandString(b.condition, processManager);
                         int res = 0;
                         if (condCmd.find('|') != std::string::npos)
                             res = executePipeline(condCmd, builtInHandler, executor, processManager);
@@ -1068,7 +1170,7 @@ namespace termidash
                         int maxIter = 10000; // Safety limit
                         while (maxIter-- > 0)
                         {
-                             std::string condCmd = expandString(b.condition);
+                             std::string condCmd = expandString(b.condition, processManager);
                              int res = 0;
                              if (condCmd.find('|') != std::string::npos)
                                 res = executePipeline(condCmd, builtInHandler, executor, processManager);
@@ -1109,7 +1211,7 @@ namespace termidash
             }
 
             // Expansion
-            cmd = expandString(cmd);
+            cmd = expandString(cmd, processManager);
 
             // Variable assignment (VAR=value)
             size_t eqPos = cmd.find('=');
@@ -1385,7 +1487,9 @@ namespace termidash
             if (state.inBlock()) {
                 terminal->write(">> ");
             } else {
-                terminal->write("> ");
+                // Use PromptEngine for PS1-style prompt
+                std::string prompt = PromptEngine::instance().render();
+                terminal->write(prompt);
             }
             std::string input = readLineInteractive(terminal, history, history_index, completionGenerator);
             if (input.empty())

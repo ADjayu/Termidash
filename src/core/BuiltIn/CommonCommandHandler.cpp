@@ -1,6 +1,7 @@
 #include "core/BuiltIn/CommonCommandHandler.hpp"
 #include "core/AliasManager.hpp"
 #include "core/VariableManager.hpp"
+#include "core/PromptEngine.hpp"
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -151,6 +152,58 @@ namespace termidash
             for (size_t i = 1; i < tokens.size(); ++i)
             {
                 VariableManager::instance().unset(tokens[i]);
+            }
+            return 0;
+        }
+        else if (cmd == "export")
+        {
+            if (tokens.size() < 2)
+            {
+                // List all exported variables
+                auto vars = VariableManager::instance().getAll();
+                for (const auto& pair : vars)
+                {
+                    ctx.out << "export " << pair.first << "=\"" << pair.second << "\"\n";
+                }
+                return 0;
+            }
+            // Parse VAR=value or VAR="value" or VAR='value'
+            std::string args;
+            for (size_t i = 1; i < tokens.size(); ++i)
+            {
+                if (i > 1) args += " ";
+                args += tokens[i];
+            }
+            
+            size_t eqPos = args.find('=');
+            if (eqPos != std::string::npos)
+            {
+                std::string varName = args.substr(0, eqPos);
+                std::string value = args.substr(eqPos + 1);
+                // Remove quotes if present
+                if (value.size() >= 2 && ((value.front() == '"' && value.back() == '"') ||
+                    (value.front() == '\'' && value.back() == '\'')))
+                {
+                    value = value.substr(1, value.size() - 2);
+                }
+                
+                // Handle PS1 specially
+                if (varName == "PS1")
+                {
+                    PromptEngine::instance().setPS1(value);
+                }
+                
+                VariableManager::instance().set(varName, value);
+            }
+            return 0;
+        }
+        else if (cmd == "set")
+        {
+            // List all variables
+            auto vars = VariableManager::instance().getAll();
+            for (const auto& pair : vars)
+            {
+                ctx.out << pair.first << "=" << pair.second << "\n";
             }
             return 0;
         }
@@ -346,7 +399,7 @@ namespace termidash
             "cd", "cls", "ver", "getenv", "setenv", "cwd", "drives", "type", "mkdir", "rmdir", "copy", "del",
             "tasklist", "taskkill", "ping", "ipconfig", "whoami", "hostname", "assoc", "systeminfo", "netstat",
             "echo", "pause", "time", "date", "dir", "attrib", "help", "clear", "exit", "version", "alias", "unalias",
-            "pwd", "touch", "rm", "cat", "uptime", "history", "grep", "sort", "head", "tail", "unset"
+            "pwd", "touch", "rm", "cat", "uptime", "history", "grep", "sort", "head", "tail", "unset", "export", "set"
         };
         return std::find(commands.begin(), commands.end(), cmd) != commands.end();
     }

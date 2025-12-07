@@ -6,6 +6,7 @@ bin/
 # Temporary Build Files
 *.log
 *.tlog
+*.xml
 *.obj
 *.pdb
 *.idb
