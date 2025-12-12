@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, phase-*]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            cmake_generator: "Unix Makefiles"
+          - os: windows-latest
+            cmake_generator: "Visual Studio 17 2022"
+          - os: macos-latest
+            cmake_generator: "Unix Makefiles"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build -C Release --output-on-failure --verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: build/Testing/
+          if-no-files-found: ignore
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check file formatting
+        run: |
+          # Check for trailing whitespace
+          if grep -rn '[[:blank:]]$' --include="*.cpp" --include="*.hpp" .; then
+            echo "::warning::Files contain trailing whitespace"
+          fi
+
+      - name: Check line endings
+        run: |
+          # Ensure no CRLF in source files on Linux
+          if file $(find . -name "*.cpp" -o -name "*.hpp" | head -20) | grep -q CRLF; then
+            echo "::warning::Some files have CRLF line endings"
+          fi

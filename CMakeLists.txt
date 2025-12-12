@@ -44,6 +44,7 @@ set(CORE_SOURCES
     src/core/PlatformFactory.cpp
     src/core/BuiltIn/CommonCommandHandler.cpp
     src/common/PlatformUtils.cpp
+    src/common/PlatformInit.cpp
     src/core/PipelineExecutor.cpp
 )
 
