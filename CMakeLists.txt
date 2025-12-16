@@ -7,6 +7,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Build options
 option(BUILD_TESTING "Build the testing tree" ON)
 
+# ============================================================================
+# Dependencies
+# ============================================================================
+include(FetchContent)
+
+# spdlog logging library
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.12.0
+)
+FetchContent_MakeAvailable(spdlog)
+
 # Platform-specific logic
 if(WIN32)
     add_definitions(-DPLATFORM_WINDOWS)
@@ -16,6 +29,11 @@ endif()
 
 # Include directories
 include_directories(include)
+
+# ============================================================================
+# Standard Installation Paths
+# ============================================================================
+include(GNUInstallDirs)
 
 # Testable Core Sources (non-platform specific, no main)
 set(CORE_TESTABLE_SOURCES
@@ -32,6 +50,7 @@ set(CORE_TESTABLE_SOURCES
     src/core/BraceExpander.cpp
     src/core/GlobExpander.cpp
     src/core/PromptEngine.cpp
+    src/common/SecurityUtils.cpp
 )
 
 # Core Sources that need platform
@@ -45,6 +64,8 @@ set(CORE_SOURCES
     src/core/BuiltIn/CommonCommandHandler.cpp
     src/common/PlatformUtils.cpp
     src/common/PlatformInit.cpp
+    src/common/Logger.cpp
+    src/common/SecurityUtils.cpp
     src/core/PipelineExecutor.cpp
 )
 
@@ -74,7 +95,41 @@ target_include_directories(termidash_core PUBLIC include)
 
 # Main executable
 add_executable(termidash src/main.cpp ${CORE_SOURCES} ${PLATFORM_SOURCES})
-target_link_libraries(termidash PRIVATE termidash_core)
+target_link_libraries(termidash PRIVATE termidash_core spdlog::spdlog)
+
+# ============================================================================
+# Installation Configuration
+# ============================================================================
+install(TARGETS termidash
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+# ============================================================================
+# CPack Packaging
+# ============================================================================
+include(CPack)
+set(CPACK_PACKAGE_NAME "termidash")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VENDOR "Termidash Project")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Modern cross-platform shell")
+set(CPACK_PACKAGE_DESCRIPTION "A modern, cross-platform command-line shell written in C++17")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
+
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Termidash")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME "Termidash")
+else()
+    set(CPACK_GENERATOR "DEB;RPM")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Termidash Team")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "shells")
+    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+endif()
 
 # ============================================================================
 # Testing Configuration
@@ -108,6 +163,7 @@ if(BUILD_TESTING)
         tests/core/test_brace_expander.cpp
         tests/core/test_glob_expander.cpp
         tests/core/test_prompt_engine.cpp
+        tests/common/test_security_utils.cpp
     )
     
     # Test executable

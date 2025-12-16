@@ -1,6 +1,6 @@
 # Termidash
 
-A modern, cross-platform command-line shell written in C++17 with support for Windows and Linux/macOS.
+A modern, cross-platform command-line shell written in C++17 with support for Windows, Linux, and macOS.
 
 ## Features
 
@@ -10,285 +10,184 @@ A modern, cross-platform command-line shell written in C++17 with support for Wi
 
 ### 📝 Interactive Shell
 - **Command History**: Persistent history saved to `~/.termidash_history`
-  - Navigate with Up/Down arrow keys
-  - History command to view past commands
-- **Tab Completion**: Dynamic completion with intelligent ranking
-  - Built-in commands
-  - Executables in PATH
-  - Files and directories in current path
-  - Fuzzy matching using LCS (Longest Common Subsequence)
-- **Startup Configuration**: Load `.termidashrc` from home directory on startup
+- **Tab Completion**: Dynamic completion with fuzzy matching (LCS)
+- **Startup Configuration**: Load `.termidashrc` from home directory
+- **Safe Mode**: Run with `--safe-mode` to block dangerous commands
+
+### 🔒 Security Features
+- Input sanitization (removes control characters)
+- Path traversal detection
+- Password masking in history
+- Safe mode blocks: `rm`, `del`, `format`, `sudo`, etc.
+
+### 📊 Logging
+Logs are stored in OS-standard locations:
+- **Windows**: `%APPDATA%\Termidash\logs\`
+- **macOS**: `~/Library/Logs/Termidash/`
+- **Linux**: `~/.local/share/termidash/logs/`
 
 ### 🔄 Control Flow
 ```bash
-# If-Else statements
 if test condition
-  echo "condition true"
+  echo "true"
 else
-  echo "condition false"
+  echo "false"
 end
 
-# While loops
 while test condition
-  echo "looping..."
+  echo "looping"
 end
 
-# For loops
 for item in apple banana cherry
   echo $item
 end
 ```
 
 ### 📦 Pipelines & Operators
-- **Standard Pipes**: `cmd1 | cmd2`
-- **Trim Pipe**: `cmd1 |> cmd2` - Trims whitespace from output before passing
-- **Command Chaining**:
-  - `;` - Sequential execution
-  - `&&` - Execute next only if previous succeeds
-  - `||` - Execute next only if previous fails
+- `cmd1 | cmd2` - Standard pipes
+- `cmd1 |> cmd2` - Trim pipe (removes whitespace)
+- `;` `&&` `||` - Command chaining
 
 ### 📁 I/O Redirection
 ```bash
-# Input/Output redirection
-cmd < input.txt          # Input redirection
-cmd > output.txt         # Output redirection (overwrite)
-cmd >> output.txt        # Output redirection (append)
-cmd 2> error.txt         # Stderr redirection
-cmd 2>> error.txt        # Stderr append
-cmd &> all.txt           # Redirect both stdout and stderr
-cmd &>> all.txt          # Append both stdout and stderr
-
-# Here-documents
-cmd << EOF
-multi-line
-input
-EOF
+cmd < input.txt       # Input
+cmd > output.txt      # Output (overwrite)
+cmd >> output.txt     # Output (append)
+cmd 2> error.txt      # Stderr
+cmd &> all.txt        # Both stdout and stderr
 ```
 
 ### ⚙️ Background Jobs
 ```bash
-long_running_cmd &       # Run in background
-jobs                     # List all background jobs
-fg %1                    # Bring job 1 to foreground
-bg %1                    # Continue job 1 in background
+long_task &           # Run in background
+jobs                  # List jobs
+fg %1                 # Foreground
+bg %1                 # Background
 ```
 
-### 🏷️ Aliases
+### 🏷️ Aliases & Variables
 ```bash
-alias                    # List all aliases
-alias ll='dir /w'        # Create an alias
-unalias ll               # Remove an alias
+alias ll='ls -la'
+NAME=value && echo $NAME
+unset NAME
 ```
 
-### 📊 Variables
+### 🔢 Arithmetic & Functions
 ```bash
-NAME=value               # Set a variable
-echo $NAME               # Use a variable
-unset NAME               # Remove a variable
-```
+echo $((5 + 3))       # Output: 8
 
-Variables integrate with environment variables - if a shell variable is not found, environment variables are checked.
-
-### 🔢 Arithmetic Expressions
-```bash
-# Arithmetic expansion
-echo $((5 + 3))          # Output: 8
-echo $((10 * 2))         # Output: 20
-echo $((a + b))          # Variables in expressions
-
-# Arithmetic commands
-((count = count + 1))    # Inline arithmetic
-
-# Supported operators: +, -, *, /, ==, !=, <, >, <=, >=
-```
-
-### 📜 User-Defined Functions
-```bash
-# Function definition (method 1)
 function greet
   echo "Hello, $1!"
 end
-
-# Function definition (method 2)
-greet() {
-  echo "Hello, $1!"
-}
-
-# Function call
-greet World              # Output: Hello, World!
+greet World
 ```
-Functions support positional arguments (`$1`, `$2`, etc.) with proper scoping.
-
-### 📝 Script Execution
-```bash
-# Run a script file
-termidash script.sh
-
-# Run a single command
-termidash -c "echo hello"
-```
-Scripts support comments with `#` at the beginning of lines.
-
-## Built-in Commands
-
-### Common Commands (Cross-Platform)
-| Command | Description |
-|---------|-------------|
-| `help` | Display available commands |
-| `clear` | Clear the screen |
-| `exit` | Exit the shell |
-| `version` | Display shell version |
-| `pwd` | Print working directory |
-| `cd <dir>` | Change directory |
-| `echo <text>` | Print text to output |
-| `cat <file>` | Display file contents |
-| `touch <file>` | Create a file or update timestamp |
-| `rm <file>` | Remove a file |
-| `history` | Display command history |
-| `alias` | Manage command aliases |
-| `unalias <name>` | Remove an alias |
-| `unset <var>` | Unset a variable |
-
-### Text Processing
-| Command | Description |
-|---------|-------------|
-| `grep <pattern> <file>` | Search for pattern in file |
-| `sort <file>` | Sort lines in a file |
-| `head <file>` | Display first 10 lines |
-| `tail <file>` | Display last 10 lines |
-
-### Windows-Specific Commands
-| Command | Description |
-|---------|-------------|
-| `cls` | Clear screen |
-| `ver` | Show Windows version |
-| `dir` | List directory contents |
-| `type <file>` | Display file contents |
-| `copy <src> <dst>` | Copy a file |
-| `del <file>` | Delete a file |
-| `mkdir <dir>` | Create a directory |
-| `rmdir <dir>` | Remove a directory |
-| `drives` | List available drives |
-| `cwd` | Display current working directory |
-| `getenv <var>` | Get environment variable |
-| `setenv <var> <val>` | Set environment variable |
-| `tasklist` | List running processes |
-| `taskkill <pid/name>` | Kill a process |
-| `ping <host>` | Ping a host |
-| `ipconfig` | Show network configuration |
-| `whoami` | Display current user |
-| `hostname` | Display computer name |
-| `systeminfo` | Display system information |
-| `netstat` | Show network statistics |
-| `attrib <file>` | Show file attributes |
-| `assoc` | Display file associations |
-| `time` | Display current time |
-| `date` | Display current date |
-| `pause` | Pause and wait for keypress |
 
 ## Building
 
 ### Requirements
-- CMake 3.16 or higher
-- C++17 compatible compiler (MSVC, GCC, Clang)
+- CMake 3.16+
+- C++17 compiler (MSVC, GCC, Clang)
+- Git (for dependency fetching)
 
-### Build Instructions
+### Automated Build (Recommended)
 
-```bash
-# Create build directory
-mkdir build
-cd build
-
-# Configure
-cmake ..
-
-# Build
-cmake --build .
+**Windows (PowerShell):**
+```powershell
+.\build.ps1 build     # Build project
+.\build.ps1 test      # Run tests
+.\build.ps1 package   # Create ZIP package
+.\build.ps1 all       # Full pipeline
+.\build.ps1 clean     # Clean build
 ```
 
-### Platform-Specific Notes
-- **Windows**: Uses native Windows API for terminal, process management, and job control
-- **Linux/macOS**: Uses POSIX APIs for Unix compatibility
-
-### Running Tests
-
-The project includes a comprehensive test suite using GoogleTest:
-
+**macOS / Linux:**
 ```bash
-# Configure with testing enabled
+chmod +x build.sh     # Make executable (first time)
+./build.sh build      # Build project
+./build.sh test       # Run tests
+./build.sh package    # Create package (DMG/DEB/RPM)
+./build.sh all        # Full pipeline
+./build.sh clean      # Clean build
+```
+
+**Debug builds:**
+```powershell
+.\build.ps1 build -BuildType Debug    # Windows
+```
+```bash
+BUILD_TYPE=Debug ./build.sh build     # macOS/Linux
+```
+
+### Manual Build
+```bash
 cmake -B build -DBUILD_TESTING=ON
-
-# Build
-cmake --build build --config Debug
-
-# Run tests
-./build/Debug/termidash_tests.exe   # Windows
-./build/termidash_tests             # Linux/macOS
+cmake --build build --config Release
 ```
 
-**Test Coverage**: 141 unit tests covering:
-- Expression evaluator (arithmetic & comparisons)
-- Variable manager (scoping, set/get/unset)
-- Alias manager
-- Function manager
-- Parser (tokenization, redirection, pipelines)
-- Completion engine (fuzzy matching)
-- Control flow handler (if/while/for/function parsing)
-- Process error types
+### Creating Packages
+```bash
+cd build
+cpack -G ZIP      # Windows
+cpack -G DragNDrop # macOS (DMG)
+cpack -G DEB      # Linux (Debian)
+cpack -G RPM      # Linux (Red Hat)
+```
+
+## Command Line Options
+
+```
+Usage: termidash [options] [script_file]
+
+Options:
+  -c <command>    Execute a single command and exit
+  --safe-mode     Run in safe mode (blocks dangerous commands)
+  --help, -h      Show help message
+  --version, -v   Show version information
+```
+
+## Testing
+
+**Test Coverage**: 223 unit tests covering:
+- Expression evaluator, Variable/Alias/Function managers
+- Parser, Completion engine, Control flow handler
+- Command substitution, Brace/Glob expansion
+- Prompt engine, Security utilities
+
+```bash
+.\build.ps1 test              # Windows
+./build.sh test               # macOS/Linux
+```
 
 ## Configuration
 
 ### `.termidashrc`
-Create a `.termidashrc` file in your home directory to run commands on shell startup:
-
 ```bash
-# ~/.termidashrc example
+# ~/.termidashrc
 alias ll='dir /w'
-alias cls='clear'
 NAME=Termidash
 echo "Welcome to $NAME!"
 ```
 
 ### Command History
-History is automatically saved to `~/.termidash_history` and persists across sessions.
+Saved to `~/.termidash_history` and persists across sessions.
 
-## Usage Examples
+## Built-in Commands
 
-```bash
-# Interactive mode
-> echo "Hello, World!"
-Hello, World!
+| Command | Description |
+|---------|-------------|
+| `help` | Display available commands |
+| `clear` / `cls` | Clear the screen |
+| `exit` | Exit the shell |
+| `pwd` / `cd` | Working directory |
+| `echo` / `cat` | Output text/files |
+| `history` | Command history |
+| `alias` / `unalias` | Manage aliases |
 
-# Pipelines
-> dir | grep ".txt"
-
-# Background jobs
-> long_task &
-[1] long_task
-> jobs
-[1] 12345 Running long_task
-> fg %1
-
-# Variables and arithmetic
-> count=5
-> echo $((count * 2))
-10
-
-# Control flow
-> for f in *.txt
->>   echo "Processing $f"
->> end
-
-# Functions
-> function backup
->>   copy $1 $1.bak
->> end
-> backup important.txt
-```
+See `help` command for full list.
 
 ## License
 
-This project is provided as-is for educational and personal use.
+MIT License - see [LICENSE](LICENSE) file.
 
 ## Version
 
